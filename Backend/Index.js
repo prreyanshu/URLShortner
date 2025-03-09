@@ -1,4 +1,5 @@
 const express = require('express');
+const cors = require('cors');
 const app = express();
 const mongoose = require('mongoose');   
 const shortId = require('shortid');
@@ -10,7 +11,8 @@ mongoose.connect(process.env.MONGODB_URI)
     .then(() => console.log("MongoDB connected successfully"))
     .catch(err => console.error("MongoDB connection error:", err));
 
-    app.use(express.json());
+app.use(cors()); // Enable CORS
+app.use(express.json());
 
 app.post('/shorten', async (req, res) => {
   const { url } = req.body;
@@ -19,12 +21,18 @@ app.post('/shorten', async (req, res) => {
   }
   const existingUrl = await urlModel.findOne({ originalUrl: url });
   if (existingUrl) {
-    return res.json(existingUrl);
+    return res.json({
+      ...existingUrl.toObject(),
+      fullCode: `${req.protocol}://${req.get('host')}/${existingUrl.shortCode}`
+    });
   }
   const shortCode = shortId.generate();
   const newUrl = new urlModel({ originalUrl: url, shortCode });
   const savedUrl = await newUrl.save();
-  res.json(savedUrl);
+  res.json({
+    ...savedUrl.toObject(),
+    fullCode: `${req.protocol}://${req.get('host')}/${savedUrl.shortCode}`
+  });
 });
 
 app.get('/:shortCode', async (req, res) => {
